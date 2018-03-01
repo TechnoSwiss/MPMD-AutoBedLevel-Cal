@@ -5,6 +5,7 @@ import sys
 import argparse
 
 check_max = True
+max_runs = 15
 runs = 0
 axis = 0
 
@@ -38,6 +39,8 @@ while True:
     settled = 0
     runs += 1
 
+    if runs > max_runs:
+        break
     print "Calibration run : " + str(runs) + "\n"
 
     port.write("G28\n")
