@@ -12,7 +12,7 @@ axis = 0
 trial_z = 0.0
 trial_x = 0.0
 trial_y = 0.0
-r_value = 61.7
+r_value = 63.2
 step_mm = 57.14
 
 parser = argparse.ArgumentParser(description='Auto-Bed Cal. for Monoprice Mini Delta')
@@ -113,7 +113,7 @@ while True:
     print "Z-Error: " + str(z_error) + " X-Error: " + str(x_error) + " Y-Error: " + str(y_error) + " C-Error: " + str(c_error) + "\n"
 
     if abs(z_error) >= 0.02 and axis != 0:
-        trial_z = z_error + trial_z
+        trial_z = z_error + trial_z if runs < (max_runs / 2) else (z_error / 2) + trial_z
         print "M666 Z" + str(trial_z) + "\n"
         port.write("M666 Z" + str(trial_z) + "\n")
         out = port.readline()
@@ -121,7 +121,7 @@ while True:
         settled += 1
 
     if abs(x_error) >= 0.02 and axis != 1:
-        trial_x = x_error + trial_x
+        trial_x = x_error + trial_x if runs < (max_runs / 2) else (x_error / 2) + trial_x
         print "M666 X" + str(trial_x) + "\n"
         port.write("M666 X" + str(trial_x) + "\n")
         out = port.readline()
@@ -129,7 +129,7 @@ while True:
         settled += 1
 
     if abs(y_error) >= 0.02 and axis != 2:
-        trial_y = y_error + trial_y
+        trial_y = y_error + trial_y if runs < (max_runs / 2) else (y_error / 2) + trial_y
         print "M666 Y" + str(trial_y) + "\n"
         port.write("M666 Y" + str(trial_y) + "\n")
         out = port.readline()
