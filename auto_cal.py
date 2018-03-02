@@ -17,7 +17,7 @@ step_mm = 57.14
 
 parser = argparse.ArgumentParser(description='Auto-Bed Cal. for Monoprice Mini Delta')
 parser.add_argument('-p','--port',help='Serial port',required=True)
-parser.add_argument('-r','--rvalue',type=float,default=r_value,help='Starting r-value')
+parser.add_argument('-r','--r-value',type=float,default=r_value,help='Starting r-value')
 parser.add_argument('-s','--step-mm',type=float,default=step_mm,help='Set steps-/mm')
 args = parser.parse_args()
 
@@ -28,8 +28,8 @@ parity=serial.PARITY_NONE)
 if sys.platform != "win32":
     temp.close()
 
-r_value = args.rvalue
-step_mm = args.stepmm
+r_value = args.r_value
+step_mm = args.step_mm
 
 port.write("M92 X" + str(step_mm) + " Y" + str(step_mm) + " Z" + str(step_mm) + "\n")
 port.write("M666 X0.0 Y0.0 Z0.0\n")
