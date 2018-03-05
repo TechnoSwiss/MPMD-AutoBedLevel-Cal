@@ -3,7 +3,7 @@
 # Updated version of the original script
 # Most of the changes are just to restructure code
 # Main functionality additions are handling of serial errors and support for additional arguments
-# Tested on Ubuntu 16.02 with Python2.7 and Windows 2016 Server with Python3.6
+# Tested on Ubuntu 16.02 with Python2.7, Windows 2016 Server with Python3.6 and MacOS High Sierra with Python2.7
 
 from serial import Serial, SerialException, PARITY_ODD, PARITY_NONE
 import sys
@@ -11,12 +11,14 @@ import argparse
 import sys
 
 def establish_serial_connection(port, speed=115200, timeout=10, writeTimeout=10000):
-    #Hack for USB connection
+    # Hack for USB connection
+    # There must be a way to do it cleaner, but I can't seem to find it
     try:
         temp = Serial(port, 115200, timeout=10, writeTimeout=10000, parity=PARITY_ODD)
         if sys.platform == 'win32':
             temp.close()
         conn = Serial(port, 115200, timeout=10, writeTimeout=10000, parity=PARITY_NONE)
+        conn.setRTS(False)#needed on mac
         if sys.platform != 'win32':
             temp.close()
         return conn
