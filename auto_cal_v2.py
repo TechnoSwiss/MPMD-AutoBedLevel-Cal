@@ -8,16 +8,16 @@
 from serial import Serial, SerialException, PARITY_ODD, PARITY_NONE
 import sys
 import argparse
-import sys
+import json
 
 def establish_serial_connection(port, speed=115200, timeout=10, writeTimeout=10000):
     # Hack for USB connection
     # There must be a way to do it cleaner, but I can't seem to find it
     try:
-        temp = Serial(port, 115200, timeout=10, writeTimeout=10000, parity=PARITY_ODD)
+        temp = Serial(port, speed, timeout=timeout, writeTimeout=writeTimeout, parity=PARITY_ODD)
         if sys.platform == 'win32':
             temp.close()
-        conn = Serial(port, 115200, timeout=10, writeTimeout=10000, parity=PARITY_NONE)
+        conn = Serial(port, speed, timeout=timeout, writeTimeout=writeTimeout, parity=PARITY_NONE)
         conn.setRTS(False)#needed on mac
         if sys.platform != 'win32':
             temp.close()
@@ -149,13 +149,13 @@ def run_calibration(port, trial_x, trial_y, trial_z,r_value, max_runs, max_error
     if calibrated:
         print ("Calibration complete")
     else:
-        run_calibration(port, new_x, new_y, new_z, new_r, max_runs, max_error, runs)
+        calibrated, new_z, new_x, new_y, new_r = run_calibration(port, new_x, new_y, new_z, new_r, max_runs, max_error, runs)
 
+    return calibrated, new_z, new_x, new_y, new_r
 
 def main():
+    # Default values
     max_runs = 14
-    runs = 0
-    axis = 0
     max_error = 1
 
     trial_z = 0.0
@@ -164,22 +164,40 @@ def main():
     r_value = 63.2
     step_mm = 57.14
 
+
     parser = argparse.ArgumentParser(description='Auto-Bed Cal. for Monoprice Mini Delta')
     parser.add_argument('-p','--port',help='Serial port',required=True)
     parser.add_argument('-r','--r-value',type=float,default=r_value,help='Starting r-value')
     parser.add_argument('-s','--step-mm',type=float,default=step_mm,help='Set steps-/mm')
     parser.add_argument('-me','--max-error',type=float,default=max_error,help='Maximum acceptable calibration error on non-first run')
     parser.add_argument('-mr','--max-runs',type=int,default=max_runs,help='Maximum attempts to calibrate printer')
+    parser.add_argument('-f','--file',type=str,dest='file',default=None,
+        help='File with settings, will be updated with latest settings at the end of the run')
     args = parser.parse_args()
 
     port = establish_serial_connection(args.port)
 
-    if port:
-        r_value = args.r_value
-        step_mm = args.step_mm
-        max_runs = args.max_runs
+    if args.file:
+        try:
+            with open(args.file) as data_file:
+                settings = json.load(data_file)
+            max_runs = int(settings.get('max_runs', max_runs))
+            max_error = float(settings.get('max_error', max_error))
+            trial_z = float(settings.get('z', trial_z))
+            trial_x = float(settings.get('x', trial_x))
+            trial_y = float(settings.get('y', trial_y))
+            r_value = float(settings.get('r', r_value))
+            step_mm = float(settings.get('step', step_mm))
 
-        print ('Setting up M92 value')
+        except:
+            r_value = args.r_value
+            step_mm = args.step_mm
+            max_runs = args.max_runs
+            pass
+
+    if port:
+
+        print ('Setting up M92 X{0} Y{0} Z{0}\n'.format(str(step_mm)))
         #Shouldn't need it once firmware bug is fixed
         port.write(('M92 X{0} Y{0} Z{0}\n'.format(str(step_mm))).encode())
         out = port.readline().decode()
@@ -188,10 +206,14 @@ def main():
 
         print ('\nStarting calibration')
 
-        run_calibration(port, trial_x, trial_y, trial_z,r_value, max_runs, args.max_error)
+        calibrated, new_z, new_x, new_y, new_r = run_calibration(port, trial_x, trial_y, trial_z,r_value, max_runs, args.max_error)
 
         port.close()
 
+        if calibrated and args.file:
+            data = {'z':new_z, 'x':new_x, 'y':new_y, 'r':new_r, 'step':step_mm, 'max_runs':max_runs, 'max_error':max_error}
+            with open(args.file, "w") as text_file:
+                text_file.write(json.dumps(data))
 
 
 if __name__ == '__main__':
