@@ -112,6 +112,15 @@ def calibrate(port, z_error, x_error, y_error, c_error, trial_x, trial_y, trial_
     else:
         new_r = r_value
 
+    # making sure I am sending the lowest adjustment value
+    diff = 100
+    for i in [new_z, new_x ,new_y]:
+        if abs(0-i) < diff:
+            diff = 0-i
+    new_z += diff
+    new_x += diff
+    new_y += diff
+
     if calibrated:
         print ("Final values\nM666 Z{0} X{1} Y{2} \nM665 R{3}".format(str(new_z),str(new_x),str(new_y),str(new_r)))
     else:
@@ -120,6 +129,7 @@ def calibrate(port, z_error, x_error, y_error, c_error, trial_x, trial_y, trial_
     return calibrated, new_z, new_x, new_y, new_r
 
 def set_M_values(port, z, x, y, r):
+
     print ("Setting values M666 Z{0} X{1} Y{2}, M665 R{3}".format(str(z),str(x),str(y),str(r)))
 
     port.write(('M666 X{0} Y{1} Z{2}\n'.format(str(x), str(y), str(z))).encode())
@@ -197,9 +207,13 @@ def main():
 
     if port:
 
-        print ('Setting up M92 X{0} Y{0} Z{0}\n'.format(str(step_mm)))
         #Shouldn't need it once firmware bug is fixed
+        print ('Setting up M92 X{0} Y{0} Z{0}\n'.format(str(step_mm)))
         port.write(('M92 X{0} Y{0} Z{0}\n'.format(str(step_mm))).encode())
+        out = port.readline().decode()
+
+        print ('Setting up M665 L123.8\n')
+        port.write('M665 L123.8\n'.encode())
         out = port.readline().decode()
 
         set_M_values(port, trial_z, trial_x, trial_y, r_value)
