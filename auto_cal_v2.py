@@ -89,19 +89,19 @@ def determine_error(z_ave, x_ave, y_ave, c_ave, max_value):
 def calibrate(port, z_error, x_error, y_error, c_error, trial_x, trial_y, trial_z,r_value, max_runs, runs):
     calibrated = True
     if abs(z_error) >= 0.02:
-        new_z = z_error + trial_z if runs < (max_runs / 2) else (z_error / 2) + trial_z
+        new_z = float("{0:.4f}".format(z_error + trial_z)) if runs < (max_runs / 2) else float("{0:.4f}".format(z_error / 2)) + trial_z
         calibrated = False
     else:
         new_z = trial_z
 
     if abs(x_error) >= 0.02:
-        new_x = x_error + trial_x if runs < (max_runs / 2) else (x_error / 2) + trial_x
+        new_x = float("{0:.4f}".format(x_error + trial_x)) if runs < (max_runs / 2) else float("{0:.4f}".format(x_error / 2)) + trial_x
         calibrated = False
     else:
         new_x = trial_x
 
     if abs(y_error) >= 0.02:
-        new_y = y_error + trial_y if runs < (max_runs / 2) else (y_error / 2) + trial_y
+        new_y = float("{0:.4f}".format(y_error + trial_y)) if runs < (max_runs / 2) else float("{0:.4f}".format(y_error / 2)) + trial_y
         calibrated = False
     else:
         new_y = trial_y
@@ -173,11 +173,13 @@ def main():
     trial_y = 0.0
     r_value = 63.2
     step_mm = 57.14
+    l_value = 123.8
 
 
     parser = argparse.ArgumentParser(description='Auto-Bed Cal. for Monoprice Mini Delta')
     parser.add_argument('-p','--port',help='Serial port',required=True)
     parser.add_argument('-r','--r-value',type=float,default=r_value,help='Starting r-value')
+    parser.add_argument('-l','--l-value',type=float,default=l_value,help='Starting l-value')
     parser.add_argument('-s','--step-mm',type=float,default=step_mm,help='Set steps-/mm')
     parser.add_argument('-me','--max-error',type=float,default=max_error,help='Maximum acceptable calibration error on non-first run')
     parser.add_argument('-mr','--max-runs',type=int,default=max_runs,help='Maximum attempts to calibrate printer')
@@ -197,12 +199,16 @@ def main():
             trial_x = float(settings.get('x', trial_x))
             trial_y = float(settings.get('y', trial_y))
             r_value = float(settings.get('r', r_value))
+            l_value = float(settings.get('l', l_value))
             step_mm = float(settings.get('step', step_mm))
 
         except:
+            max_error = args.max_error
+            max_runs = args.max_runs
             r_value = args.r_value
             step_mm = args.step_mm
             max_runs = args.max_runs
+            l_value = args.l_value
             pass
 
     if port:
@@ -212,8 +218,8 @@ def main():
         port.write(('M92 X{0} Y{0} Z{0}\n'.format(str(step_mm))).encode())
         out = port.readline().decode()
 
-        print ('Setting up M665 L123.8\n')
-        port.write('M665 L123.8\n'.encode())
+        print ('Setting up M665 L{0}\n').format(str(l_value))
+        port.write(('M665 L{0}\n'.format(str(l_value))).encode())
         out = port.readline().decode()
 
         set_M_values(port, trial_z, trial_x, trial_y, r_value)
@@ -225,7 +231,7 @@ def main():
         port.close()
 
         if calibrated and args.file:
-            data = {'z':new_z, 'x':new_x, 'y':new_y, 'r':new_r, 'step':step_mm, 'max_runs':max_runs, 'max_error':max_error}
+            data = {'z':new_z, 'x':new_x, 'y':new_y, 'r':new_r, 'l': l_value, 'step':step_mm, 'max_runs':max_runs, 'max_error':max_error}
             with open(args.file, "w") as text_file:
                 text_file.write(json.dumps(data))
 
