@@ -241,7 +241,7 @@ def main():
         port.write('M206 X0 Y0 Z0\n'.encode())
         out = port.readline().decode()
 
-        print ('Setting up M421 C\n')
+        print ('Clearing mesh with M421 C\n')
         port.write('M421 C\n'.encode())
         out = port.readline().decode()
 
@@ -253,10 +253,12 @@ def main():
 
         port.close()
 
-        if calibrated and args.file:
-            data = {'z':new_z, 'x':new_x, 'y':new_y, 'r':new_r, 'l': l_value, 'step':step_mm, 'max_runs':max_runs, 'max_error':max_error}
-            with open(args.file, "w") as text_file:
-                text_file.write(json.dumps(data))
+        if calibrated:
+            print ('Now, run mesh bed leveling before printing: G29\n')
+            if args.file:
+                data = {'z':new_z, 'x':new_x, 'y':new_y, 'r':new_r, 'l': l_value, 'step':step_mm, 'max_runs':max_runs, 'max_error':max_error}
+                with open(args.file, "w") as text_file:
+                    text_file.write(json.dumps(data))
 
 
 if __name__ == '__main__':
