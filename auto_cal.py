@@ -24,10 +24,10 @@ class MpmdConnection:
             return conn
         except SerialException as e:
             print ("Could not connect to {0} at baudrate {1}\nSerial error: {2}".format(port, str(speed), e))
-            return None
+            raise e
         except IOError as e:
             print ("Could not connect to {0} at baudrate {1}\nIO error: {2}".format(port, str(speed), e))
-            return None
+            raise e
 
     def __init__(self, port):
         self.connection = MpmdConnection.establishSerialConnection(port=port)
