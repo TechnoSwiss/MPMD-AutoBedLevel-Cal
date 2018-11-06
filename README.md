@@ -13,7 +13,7 @@ Requirements:
 	pip install pyserial
 
 OS:
-    Linux (tested with Debian Jessie)
+  Linux (tested with Debian Jessie)
 	Windows (tested with Win10)
 	Mac (have not tested, but should work)
 
