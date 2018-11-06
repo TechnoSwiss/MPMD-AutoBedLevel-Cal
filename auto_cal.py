@@ -316,7 +316,7 @@ class MpmdAutomaticCalibration:
             new_y = trial_y
 
         if abs(c_error) >= self._max_error:
-            trial_r = float("{0:.4f}".format(trial_r + c_error / -0.5))
+            new_r = float("{0:.4f}".format(trial_r + c_error / -0.5))
             calibrated = False
         else:
             new_r = trial_r
