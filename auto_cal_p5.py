@@ -447,7 +447,8 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
     #print("Bowl Center: \n")
     #print(*BC_list, sep='\n\n')
     #print("\n")
-    BC_list.append(float(0.0)) # Necessary to match current spreadsheet, but might be a bug
+    if minterp == 1: 
+        BC_list.append(float(0.0)) # Necessary to match current spreadsheet, but might be a bug
     BowlCenter = float(statistics.mean(BC_list))
     
     # Bowl Stats - Outside Ring
@@ -468,7 +469,8 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
     OR_list[9]  = float(griddata(coord_xy, coord_z, (xmin/2.0, ymin)))
     OR_list[10] = float(griddata(coord_xy, coord_z, (   0.0, ymin)))
     OR_list[11] = float(griddata(coord_xy, coord_z, (xmax/2.0, ymin)))
-    OR_list.append(float(0.0)) # Necessary to match current spreadsheet, but might be a bug
+    if minterp == 1: 
+        OR_list.append(float(0.0)) # Necessary to match current spreadsheet, but might be a bug
     BowlOR = float(statistics.median(OR_list))
     #print("Outer Ring Values: \n")
     #print(*OR_list, sep='\n\n')
@@ -751,6 +753,9 @@ def main():
             print ('Setting bed temperature to {0} C\n'.format(str(bed_temp)))
             port.write('M140 S{0}\n'.format(str(bed_temp)).encode())
             out = port.readline().decode()
+            
+        #
+        print("Interpolation Method: {0}\n".format(str(minterp)))
     
         #Shouldn't need it once firmware bug is fixed
         print ('Setting up M92 X{0} Y{0} Z{0}\n'.format(str(step_mm)))
