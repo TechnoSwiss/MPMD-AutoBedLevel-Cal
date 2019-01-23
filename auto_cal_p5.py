@@ -50,7 +50,7 @@ def get_points(port):
 
     return out.split(' ')
 
-def get_current_values(port):
+def get_current_values(port, firmFlag):
     # Replacing G29 P5 with manual probe points for cross-firmware compatibility
     # G28 ; home
     # G1 Z15 F6000; go to safe distance
@@ -130,26 +130,46 @@ def get_current_values(port):
 
     # Send Gcodes
     port.write(('G28\n').encode()) # Home
-    port.write(('G1 Z15 F6000\n').encode()) # Move to safe distance
+    
+    if firmFlag == 1: 
+        # Marlin
+        port.write(('G1 Z15 F6000\n').encode()) # Move to safe distance
+    else:
+        # Stock Firmware
+        port.write(('G29 P5 V4\n').encode())
+
+        while True:
+            out = port.readline().decode()
+            #print("{0}\n".format(out))
+            if 'G29 Auto Bed Leveling' in out:
+                break
+        
+    # Loop through all 
     for ii in range(len(x_list)):
         
-        
-        # Move to desired position
-        port.write(('G1 X{0} Y{1}\n'.format(x_list[ii], y_list[ii])).encode()) 
-        #print('Sending G1 X{0} Y{1}\n'.format(x_list[ii], y_list[ii]))
-        
-        # Probe Z values
-        port.write(('G30\n').encode())
-        z_axis_1 = get_points(port)
-        port.write(('G30\n').encode())
-        z_axis_2 = get_points(port)
+        if firmFlag == 1: 
+            # Marlin
+            
+            # Move to desired position
+            port.write(('G1 X{0} Y{1}\n'.format(x_list[ii], y_list[ii])).encode()) 
+            #print('Sending G1 X{0} Y{1}\n'.format(x_list[ii], y_list[ii]))
+            
+            # Probe Z values
+            port.write(('G30\n').encode())
+            z_axis_1 = get_points(port)
+            port.write(('G30\n').encode())
+            z_axis_2 = get_points(port)
+        else:
+            # Stock Firmware
+            z_axis_1 = get_points(port)
+            z_axis_2 = get_points(port)
         
         # Populate most of the table values
         z1_list[ii] = float(z_axis_1[6])
         z2_list[ii] = float(z_axis_2[6])
         z_avg_list[ii] = float("{0:.4f}".format((z1_list[ii] + z2_list[ii]) / 2.0))
         dtap_list[ii] = z2_list[ii] - z1_list[ii]
-        #print('Received: Z1:{0} Z2:{1}\n\n'.format(z1_list[ii], z2_list[ii]))
+        #print('Received: X:{0} X:{1} Y:{2} Y:{3} Z1:{4} Z2:{5}\n\n'.format(str(x_list[ii]), str(z_axis_1[2]), str(y_list[ii]), str(z_axis_1[4]), z1_list[ii], z2_list[ii]))
     
     # Find the Median Reference
     z_med = statistics.median(z_avg_list)
@@ -157,6 +177,11 @@ def get_current_values(port):
     # Calculate z diff
     for ii in range(len(x_list)):
         dz_list[ii] = z_avg_list[ii] - z_med
+        
+    # Empty out remaining lines for stock firmware
+    if firmFlag == 0: 
+        for ii in range(6):
+            out = port.readline().decode()
     
     return x_list, y_list, z1_list, z2_list, z_avg_list, dtap_list, dz_list
 
@@ -201,7 +226,7 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
     
     # Copy Equations from Dennis's Spreadsheet and put them in the lookup grid
     # Put inside if statement incase we want to try other interpolation methods
-    # 1 is the default, anything else simply uses Python's griddata with the probed points.
+    # Anything other than 1 simply uses Python's griddata with the probed points.
     if minterp == 1: 
     
         # Fill in based on known values across the horizontal
@@ -230,10 +255,12 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
                             x0 = xmin + dx*float(ix)
                             x1 = x0 + dprobe
                             #print("iStart={0}\n".format(str(iStart)))
+                            #print("Known Point x0 = {0}".format(str(x0)))
                         else:
                             x0 = x1
                             x1 = x0 + dprobe
                             #print("Known Point\n")
+                            #print("Known Point x0 = {0}".format(str(x0)))
                         z0 = float(griddata(coord_xy, coord_z, (x0   , y0)))
                         z1 = float(griddata(coord_xy, coord_z, (x1   , y1)))
                     else: #  Interpolate Between Known Values
@@ -257,11 +284,11 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
             # Set Start/End indices for circular base
             if xtmp == xmin or xtmp == xmax:
                 iStart = int(round(ngrid))
-                iEnd = nmax-1-int(round(ngrid))
+                iEnd = nmax-int(round(ngrid))
             else:
                 iStart = 0
-                iEnd = nmax-2
-            # Loop through all x-values
+                iEnd = nmax-1
+            # Loop through all y-values
             for iy in range(nmax): 
                 yq = ymin + float(iy)*dy
                 #print("x={0} y={1} ix={2} iy={3} mod={4} iStart = {5} iEnd = {6}\n\n".format(str(xq),str(yq),str(ix),str(iy),str(ix%ngrid),str(iStart),str(iEnd)))
@@ -271,19 +298,24 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
                             y0 = ymin + dy*float(iy)
                             y1 = y0 + dprobe
                             #print("iStart={0}\n".format(str(iStart)))
+                            #print("Known Point y0 = {0} y1 = {1} yq = {2}".format(str(y0), str(y1), str(yq)))
                         else:
                             y0 = y1
                             y1 = y0 + dprobe
                             #print("Known Point\n")
+                            #print("Known Point y0 = {0} y1 = {1} yq = {2}".format(str(y0), str(y1), str(yq)))
                         z0 = float(griddata(coord_xy, coord_z, (x0   , y0)))
+                        #print("x0={0} y0={1} z0={2}".format(str(x0), str(y0), str(z0)))
                         z1 = float(griddata(coord_xy, coord_z, (x1   , y1)))
+                        #print("x1={0} y1={1} z1={2}".format(str(x1), str(y1), str(z1)))
                     else: #  Interpolate Between Known Values
                         zq = linear_interp(y0, y1, z0, z1, yq)
                         x_list_new.append(xq)
                         y_list_new.append(yq)
                         dz_list_new.append(zq)
-                        #print("Interp Test: {0} {1} {2}\n".format(str(xq),str(yq),str(zq)))
-                        #print("z0={0} z1={1}".format(str(z0),str(z1)))
+                        #if xtmp == 0.0:
+                            #print("Interp Test: {0} {1} {2}".format(str(xq),str(yq),str(zq)))
+                            #print("z0={0} z1={1}\n".format(str(z0),str(z1)))
                 #else:
                     #print("Outside of grid\n")
             
@@ -373,10 +405,10 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
         S12 = float(griddata(coord_xy, coord_z, (0.0+dx, -25.0)))
         x_list_new.append(0.0-dx)
         y_list_new.append(0.0+dy)
-        dz_list_new.append((Q7-Q9)/3.0+Q9)
+        dz_list_new.append((Q7-Q9)/2.0+Q9)
         x_list_new.append(0.0+dx)
         y_list_new.append(0.0+dy)
-        dz_list_new.append((S7-S9)/3.0+S9)
+        dz_list_new.append((S7-S9)/2.0+S9)
         x_list_new.append(0.0-dx)
         y_list_new.append(0.0-dy)
         dz_list_new.append((Q12-Q9)/3.0+Q9)
@@ -447,8 +479,6 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
     #print("Bowl Center: \n")
     #print(*BC_list, sep='\n\n')
     #print("\n")
-    if minterp == 1: 
-        BC_list.append(float(0.0)) # Necessary to match current spreadsheet, but might be a bug
     BowlCenter = float(statistics.mean(BC_list))
     
     # Bowl Stats - Outside Ring
@@ -469,8 +499,6 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
     OR_list[9]  = float(griddata(coord_xy, coord_z, (xmin/2.0, ymin)))
     OR_list[10] = float(griddata(coord_xy, coord_z, (   0.0, ymin)))
     OR_list[11] = float(griddata(coord_xy, coord_z, (xmax/2.0, ymin)))
-    if minterp == 1: 
-        OR_list.append(float(0.0)) # Necessary to match current spreadsheet, but might be a bug
     BowlOR = float(statistics.median(OR_list))
     #print("Outer Ring Values: \n")
     #print(*OR_list, sep='\n\n')
@@ -630,7 +658,7 @@ def output_pass_text(runs, trial_x, trial_y, trial_z, l_value, r_value, iHighTow
     return
 
 
-def run_calibration(port, trial_x, trial_y, trial_z, l_value, r_value, xhigh, yhigh, zhigh, max_runs, max_error, bed_temp, minterp, runs=0):
+def run_calibration(port, firmFlag, trial_x, trial_y, trial_z, l_value, r_value, xhigh, yhigh, zhigh, max_runs, max_error, bed_temp, minterp, runs=0):
     runs += 1
 
     if runs > max_runs:
@@ -642,8 +670,8 @@ def run_calibration(port, trial_x, trial_y, trial_z, l_value, r_value, xhigh, yh
         port.write('M140 S{0}\n'.format(str(bed_temp)).encode())
     
     # Read G30 values and calculate values in columns B through H
-    x_list, y_list, z1_list, z2_list, z_avg_list, dtap_list, dz_list = get_current_values(port)
-
+    x_list, y_list, z1_list, z2_list, z_avg_list, dtap_list, dz_list = get_current_values(port, firmFlag)
+    
     # Generate the P5 contour map
     TX, TY, TZ, THigh, BowlCenter, BowlOR, xhigh, yhigh, zhigh, iHighTower = calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minterp)
     
@@ -651,28 +679,28 @@ def run_calibration(port, trial_x, trial_y, trial_z, l_value, r_value, xhigh, yh
     output_pass_text(runs, trial_x, trial_y, trial_z, l_value, r_value, iHighTower, x_list, y_list, z1_list, z2_list)
     
     # Output Debugging Info
-    file_object  = open("debug_pass{0:d}.csv".format(int(runs-1)), "w")
-    file_object.write("X,Y,Z1,Z2,Z avg,Tap diff,Z diff,TX,TY,TZ,THigh,BowlCenter,BowlOR\r\n") 
-    z_med = statistics.median(z_avg_list)
-    for ii in range(len(x_list)):
-        dz_list[ii] = z_avg_list[ii] - z_med
-        file_object.write("{0:.4f},{1:.4f},{2:.4f},{3:.4f},".format(float(x_list[ii]),float(y_list[ii]),float(z1_list[ii]),float(z2_list[ii])))
-        file_object.write("{0:.4f},{1:.4f},{2:.4f},".format(float(z_avg_list[ii]),float(dtap_list[ii]),float(dz_list[ii])))
-        file_object.write("{0:.4f},{1:.4f},{2:.4f},{3:.4f},{4:.4f},{5:.4f}\r\n".format(float(TX),float(TY),float(TZ),float(THigh),float(BowlCenter),float(BowlOR)))
-    file_object.close() 
+    #file_object  = open("debug_pass{0:d}.csv".format(int(runs-1)), "w")
+    #file_object.write("X,Y,Z1,Z2,Z avg,Tap diff,Z diff,TX,TY,TZ,THigh,BowlCenter,BowlOR\r\n") 
+    #z_med = statistics.median(z_avg_list)
+    #for ii in range(len(x_list)):
+    #    dz_list[ii] = z_avg_list[ii] - z_med
+    #    file_object.write("{0:.4f},{1:.4f},{2:.4f},{3:.4f},".format(float(x_list[ii]),float(y_list[ii]),float(z1_list[ii]),float(z2_list[ii])))
+    #    file_object.write("{0:.4f},{1:.4f},{2:.4f},".format(float(z_avg_list[ii]),float(dtap_list[ii]),float(dz_list[ii])))
+    #    file_object.write("{0:.4f},{1:.4f},{2:.4f},{3:.4f},{4:.4f},{5:.4f}\r\n".format(float(TX),float(TY),float(TZ),float(THigh),float(BowlCenter),float(BowlOR)))
+    #file_object.close() 
     
     # Calculate Error
     z_error, x_error, y_error, c_error = determine_error(TX, TY, TZ, THigh, BowlCenter, BowlOR)
-
+    
     if abs(max([z_error, x_error, y_error, c_error], key=abs)) > max_error and runs > 1:
         sys.exit("Calibration error on non-first run exceeds set limit")
 
     calibrated, new_z, new_x, new_y, new_l, new_r = calibrate(port, z_error, x_error, y_error, c_error, trial_x, trial_y, trial_z, l_value, r_value, iHighTower, max_runs, runs)
-
+    
     if calibrated:
         print ("Calibration complete")
     else:
-        calibrated, new_z, new_x, new_y, new_l, new_r, xhigh, yhigh, zhigh = run_calibration(port, new_x, new_y, new_z, new_l, new_r, xhigh, yhigh, zhigh, max_runs, max_error, bed_temp, minterp, runs)
+        calibrated, new_z, new_x, new_y, new_l, new_r, xhigh, yhigh, zhigh = run_calibration(port, firmFlag, new_x, new_y, new_z, new_l, new_r, xhigh, yhigh, zhigh, max_runs, max_error, bed_temp, minterp, runs)
 
     return calibrated, new_z, new_x, new_y, new_l, new_r, xhigh, yhigh, zhigh
 
@@ -694,7 +722,8 @@ def main():
     yhigh = [0]*2
     zhigh = [0]*2
     bed_temp = -1
-    minterp = 1
+    minterp = 0
+    firmFlag = 0
 
     parser = argparse.ArgumentParser(description='Auto-Bed Cal. for Monoprice Mini Delta')
     parser.add_argument('-p','--port',help='Serial port',required=True)
@@ -705,6 +734,7 @@ def main():
     parser.add_argument('-mr','--max-runs',type=int,default=max_runs,help='Maximum attempts to calibrate printer')
     parser.add_argument('-bt','--bed-temp',type=int,default=bed_temp,help='Bed Temperature')
     parser.add_argument('-im','--minterp',type=int,default=minterp,help='Intepolation Method')
+    parser.add_argument('-ff','--firmFlag',type=int,default=firmFlag,help='Firmware Flag (0 = Stock; 1 = Marlin)')
     parser.add_argument('-f','--file',type=str,dest='file',default=None,
         help='File with settings, will be updated with latest settings at the end of the run')
     args = parser.parse_args()
@@ -715,6 +745,7 @@ def main():
         try:
             with open(args.file) as data_file:
                 settings = json.load(data_file)
+            firmFlag = int(settings.get('firmFlag', firmFlag))
             minterp = int(settings.get('minterp', minterp))
             bed_temp = int(settings.get('bed_temp', bed_temp))
             max_runs = int(settings.get('max_runs', max_runs))
@@ -727,6 +758,7 @@ def main():
             step_mm = float(settings.get('step', step_mm))
 
         except:
+            firmFlag = args.firmFlag
             minterp = args.minterp
             bed_temp = args.bed_temp
             max_error = args.max_error
@@ -737,6 +769,7 @@ def main():
             l_value = args.l_value
             pass
     else: 
+        firmFlag = args.firmFlag
         minterp = args.minterp
         bed_temp = args.bed_temp
         max_error = args.max_error
@@ -747,17 +780,26 @@ def main():
         l_value = args.l_value
         
     if port:
-
+    
+        # Firmware
+        if firmFlag == 0:
+            print("Using Monoprice Firmware\n")
+        elif firmFlag == 1:
+            print("Using Marlin Firmware\n")
+    
         #Set Bed Temperature
         if bed_temp >= 0:
             print ('Setting bed temperature to {0} C\n'.format(str(bed_temp)))
             port.write('M140 S{0}\n'.format(str(bed_temp)).encode())
             out = port.readline().decode()
             
-        #
-        print("Interpolation Method: {0}\n".format(str(minterp)))
+        # Display interpolation methods
+        if minterp == 1: 
+            print("Interpolation Method: Dennis's Spreadsheet\n")
+        else:
+            print("Interpolation Method: python3 scipy.interpolate.griddata\n")
     
-        #Shouldn't need it once firmware bug is fixed
+        # Set the proper step/mm
         print ('Setting up M92 X{0} Y{0} Z{0}\n'.format(str(step_mm)))
         port.write(('M92 X{0} Y{0} Z{0}\n'.format(str(step_mm))).encode())
         out = port.readline().decode()
@@ -766,27 +808,26 @@ def main():
         port.write(('M665 L{0}\n'.format(str(l_value))).encode())
         out = port.readline().decode()
 
-        print ('Setting up M206 X0 Y0 Z0\n')
-        port.write('M206 X0 Y0 Z0\n'.encode())
-        out = port.readline().decode()
+        if firmFlag == 1:
+            print ('Setting up M206 X0 Y0 Z0\n')
+            port.write('M206 X0 Y0 Z0\n'.encode())
+            out = port.readline().decode()
         
-        try:
             print ('Clearing mesh with M421 C\n')
             port.write('M421 C\n'.encode())
             out = port.readline().decode()
-        except: 
-            print("\n")
 
         set_M_values(port, trial_z, trial_x, trial_y, l_value, r_value)
 
         print ('\nStarting calibration')
 
-        calibrated, new_z, new_x, new_y, new_l, new_r, xhigh, yhigh, zhigh = run_calibration(port, trial_x, trial_y, trial_z, l_value, r_value, xhigh, yhigh, zhigh, max_runs, args.max_error, bed_temp, minterp)
+        calibrated, new_z, new_x, new_y, new_l, new_r, xhigh, yhigh, zhigh = run_calibration(port, firmFlag, trial_x, trial_y, trial_z, l_value, r_value, xhigh, yhigh, zhigh, max_runs, args.max_error, bed_temp, minterp)
 
         port.close()
 
         if calibrated:
-            print ('Now, if on Marlin, run mesh bed leveling before printing: G29\n')
+            if firmFlag == 1:
+                print ('Run mesh bed leveling before printing: G29\n')
             if args.file:
                 data = {'z':new_z, 'x':new_x, 'y':new_y, 'r':new_r, 'l': new_l, 'step':step_mm, 'max_runs':max_runs, 'max_error':max_error, 'bed_temp':bed_temp}
                 with open(args.file, "w") as text_file:
