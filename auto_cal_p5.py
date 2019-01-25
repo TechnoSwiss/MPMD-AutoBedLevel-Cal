@@ -663,7 +663,7 @@ def run_calibration(port, firmFlag, trial_x, trial_y, trial_z, l_value, r_value,
 
     if runs > max_runs:
         sys.exit("Too many calibration attempts")
-    print('\nCalibration run {1} out of {0}'.format(str(max_runs), str(runs)))
+    print('\nCalibration pass {1}, run {2} out of {0}'.format(str(max_runs), str(runs-1), str(runs)))
     
     # Make sure the bed doesn't go cold
     if bed_temp >= 0: 
