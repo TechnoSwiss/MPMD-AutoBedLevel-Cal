@@ -11,6 +11,22 @@
 # https://www.facebook.com/groups/mpminideltaowners/permalink/2186865287995612/
 # G29 P5 V4 Converted to manual probes for cross-firmware compatibility:
 # https://github.com/mcheah/Marlin4MPMD/wiki/Calibration#user-content-m665m666-delta-parameter-calibrations
+#
+# Full Instructions: https://www.facebook.com/groups/mpminideltaowners/permalink/2574670629215074/
+#
+# REQUIRES PYTHON3
+# REQUIRES SCIPY AND SERIAL
+#
+# sudo apt-get install python3-serial
+# sudo apt-get install python3-scipy
+#
+# Stock Firmware <=V41, V45 at 60 degrees C w/ Dennis's Defaults:
+# python3 auto_cal_p5.py -p /dev/ttyACM0 -ff 0 -r 63.5 -l 123.0 -s 57.14 -bt 60
+#
+# Stock V43 & V44 at 60 degrees C w/ Dennis's Defaults:
+# python3 auto_cal_p5.py -p /dev/ttyACM0 -ff 0 -r 63.5 -l 123.0 -s 114.28 -bt 60
+#
+# For Marlin, use the appropriate line for your stock firmware and replace "-ff 0" with "-ff 1"
 
 from serial import Serial, SerialException, PARITY_ODD, PARITY_NONE
 import sys
