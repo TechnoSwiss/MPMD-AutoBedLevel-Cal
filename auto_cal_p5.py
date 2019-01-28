@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
 # Updated version of the original script
-# Most of the changes are just to restructure code
-# Main functionality additions are handling of serial errors and support for additional arguments
-# Tested on Ubuntu 16.02 with Python2.7, Windows 2016 Server with Python3.6 and MacOS High Sierra with Python2.7
 
 # Original Project Found here:
 # https://github.com/TechnoSwiss/MPMD-AutoBedLevel-Cal
