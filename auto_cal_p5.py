@@ -18,10 +18,10 @@
 # sudo apt-get install python3-scipy
 #
 # Stock Firmware <=V41, V45 at 60 degrees C w/ Dennis's Defaults:
-# python3 auto_cal_p5.py -p /dev/ttyACM0 -ff 0 -r 63.5 -l 123.0 -s 57.14 -bt 60
+# python3 auto_cal_p5.py -p /dev/ttyACM0 -ff 0 -tf 0 -r 63.5 -l 123.0 -s 57.14 -bt 60
 #
 # Stock V43 & V44 at 60 degrees C w/ Dennis's Defaults:
-# python3 auto_cal_p5.py -p /dev/ttyACM0 -ff 0 -r 63.5 -l 123.0 -s 114.28 -bt 60
+# python3 auto_cal_p5.py -p /dev/ttyACM0 -ff 0 -tf 0 -r 63.5 -l 123.0 -s 114.28 -bt 60
 #
 # For Marlin, use the appropriate line for your stock firmware and replace "-ff 0" with "-ff 1"
 
@@ -216,7 +216,7 @@ def linear_interp(x0, x1, z0, z1, xq):
     zq = z0 + (xq-x0)*(z1-z0)/(x1-x0)
     return zq
     
-def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minterp):
+def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minterp, tower_flag):
     
     # Redefine Lists
     x_list_new = x_list.copy()
@@ -433,48 +433,51 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
         coord_xy, coord_z = xyz_list2array(x_list_new,y_list_new,dz_list_new)
 
     
-    # X Tilt
+    # North Tilt (opposite of LCD)
     x0 = xmin
     y0 = ymin/2
-    TX_list = [None]*5
-    TX_list[0] = float(griddata(coord_xy, coord_z, (x0   , y0)))
-    TX_list[1] = float(griddata(coord_xy, coord_z, (x0   , y0+dy)))
-    TX_list[2] = float(griddata(coord_xy, coord_z, (x0+dx, y0)))
-    TX_list[3] = float(griddata(coord_xy, coord_z, (x0+dx, y0+dy)))
-    TX_list[4] = float(griddata(coord_xy, coord_z, (x0+dx, y0-dy)))
-    #print("TX Values\n")
-    #print(*TX_list, sep='\n\n')
+    ntower = float(griddata(coord_xy, coord_z, (x0, y0)))
+    TN_list = [None]*5
+    TN_list[0] = float(griddata(coord_xy, coord_z, (x0   , y0)))
+    TN_list[1] = float(griddata(coord_xy, coord_z, (x0   , y0+dy)))
+    TN_list[2] = float(griddata(coord_xy, coord_z, (x0+dx, y0)))
+    TN_list[3] = float(griddata(coord_xy, coord_z, (x0+dx, y0+dy)))
+    TN_list[4] = float(griddata(coord_xy, coord_z, (x0+dx, y0-dy)))
+    #print("TN Values\n")
+    #print(*TN_list, sep='\n\n')
     #print("\n")
-    TX = float(statistics.mean(TX_list))
+    TN = float(statistics.mean(TN_list))
     
-    # Y Tilt
+    # West Tilt (left of LCD)
     x0 = xmax
     y0 = ymin/2
-    TY_list = [None]*5
-    TY_list[0] = float(griddata(coord_xy, coord_z, (x0   , y0)))
-    TY_list[1] = float(griddata(coord_xy, coord_z, (x0   , y0+dy)))
-    TY_list[2] = float(griddata(coord_xy, coord_z, (x0-dx, y0))) # problem
-    TY_list[3] = float(griddata(coord_xy, coord_z, (x0-dx, y0+dy)))
-    TY_list[4] = float(griddata(coord_xy, coord_z, (x0-dx, y0-dy)))
-    #print("TY Values\n")
-    #print(*TY_list, sep='\n\n')
+    wtower = float(griddata(coord_xy, coord_z, (x0, y0)))
+    TW_list = [None]*5
+    TW_list[0] = float(griddata(coord_xy, coord_z, (x0   , y0)))
+    TW_list[1] = float(griddata(coord_xy, coord_z, (x0   , y0+dy)))
+    TW_list[2] = float(griddata(coord_xy, coord_z, (x0-dx, y0))) # problem
+    TW_list[3] = float(griddata(coord_xy, coord_z, (x0-dx, y0+dy)))
+    TW_list[4] = float(griddata(coord_xy, coord_z, (x0-dx, y0-dy)))
+    #print("TW Values\n")
+    #print(*TW_list, sep='\n\n')
     #print("\n")
-    TY = float(statistics.mean(TY_list))
+    TW = float(statistics.mean(TW_list))
     
-    # Z Tilt
+    # East Tilt (right of LCD)
     x0 = 0.0
     y0 = ymax
-    TZ_list = [None]*6
-    TZ_list[0] = float(griddata(coord_xy, coord_z, (x0-dx, y0)))
-    TZ_list[1] = float(griddata(coord_xy, coord_z, (x0   , y0)))
-    TZ_list[2] = float(griddata(coord_xy, coord_z, (x0+dx, y0)))
-    TZ_list[3] = float(griddata(coord_xy, coord_z, (x0-dx, y0-dy)))
-    TZ_list[4] = float(griddata(coord_xy, coord_z, (x0   , y0-dy)))
-    TZ_list[5] = float(griddata(coord_xy, coord_z, (x0+dx, y0-dy)))
-    #print("TZ Values\n")
-    #print(*TZ_list, sep='\n\n')
+    etower = float(griddata(coord_xy, coord_z, (x0, y0)))
+    TE_list = [None]*6
+    TE_list[0] = float(griddata(coord_xy, coord_z, (x0-dx, y0)))
+    TE_list[1] = float(griddata(coord_xy, coord_z, (x0   , y0)))
+    TE_list[2] = float(griddata(coord_xy, coord_z, (x0+dx, y0)))
+    TE_list[3] = float(griddata(coord_xy, coord_z, (x0-dx, y0-dy)))
+    TE_list[4] = float(griddata(coord_xy, coord_z, (x0   , y0-dy)))
+    TE_list[5] = float(griddata(coord_xy, coord_z, (x0+dx, y0-dy)))
+    #print("TE Values\n")
+    #print(*TE_list, sep='\n\n')
     #print("\n")
-    TZ = float(statistics.mean(TZ_list))
+    TE = float(statistics.mean(TE_list))
     
     # Bowl Stats - Center
     x0 = 0.0
@@ -518,15 +521,32 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
     #print("\n")
     #print("BowlOR = {0:.4f}".format(BowlOR))
     
+    # Assign Towers to the current Tower X/Y/Z configuration (default is stock)
+    TX = TN
+    xtower = ntower
+    TY = TW
+    ytower = wtower
+    TZ = TE
+    ztower = etower
+    if tower_flag == 1: 
+        TX = TE
+        xtower = etower
+        TY = TN
+        ytower = ntower
+        TZ = TW
+        ztower = wtower
+    elif tower_flag == 2: 
+        TX = TW
+        xtower = wtower
+        TY = TE
+        ytower = etower
+        TZ = TN
+        ztower = ntower
+    
     # Define Pass # according to the spreadsheet
     pass_num = runs - 1
     
     if pass_num == 0:
-        # Define Tower Points
-        xtower = float(griddata(coord_xy, coord_z, (xmin, ymin/2.0)))
-        ytower = float(griddata(coord_xy, coord_z, (xmax, ymin/2.0)))
-        ztower = float(griddata(coord_xy, coord_z, ( 0.0, ymax)))
-    
         # Check X Tower
         if xtower > ytower and xtower > ztower:
             xhigh[1] = 1
@@ -559,7 +579,7 @@ def calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minter
     else:
         THigh = TZ
         iHighTower = 2
-
+        
     # Return Results
     return TX, TY, TZ, THigh, BowlCenter, BowlOR, xhigh, yhigh, zhigh, iHighTower
     
@@ -671,7 +691,7 @@ def output_pass_text(runs, trial_x, trial_y, trial_z, l_value, r_value, iHighTow
     return
 
 
-def run_calibration(port, firmFlag, trial_x, trial_y, trial_z, l_value, r_value, xhigh, yhigh, zhigh, max_runs, max_error, bed_temp, minterp, runs=0):
+def run_calibration(port, firmFlag, trial_x, trial_y, trial_z, l_value, r_value, xhigh, yhigh, zhigh, max_runs, max_error, bed_temp, minterp, tower_flag, runs=0):
     runs += 1
 
     if runs > max_runs:
@@ -686,7 +706,7 @@ def run_calibration(port, firmFlag, trial_x, trial_y, trial_z, l_value, r_value,
     x_list, y_list, z1_list, z2_list, z_avg_list, dtap_list, dz_list = get_current_values(port, firmFlag)
     
     # Generate the P5 contour map
-    TX, TY, TZ, THigh, BowlCenter, BowlOR, xhigh, yhigh, zhigh, iHighTower = calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minterp)
+    TX, TY, TZ, THigh, BowlCenter, BowlOR, xhigh, yhigh, zhigh, iHighTower = calculate_contour(x_list, y_list, dz_list, runs, xhigh, yhigh, zhigh, minterp, tower_flag)
     
     # Output current pass results
     output_pass_text(runs, trial_x, trial_y, trial_z, l_value, r_value, iHighTower, x_list, y_list, z1_list, z2_list)
@@ -713,7 +733,7 @@ def run_calibration(port, firmFlag, trial_x, trial_y, trial_z, l_value, r_value,
     if calibrated:
         print ("Calibration complete")
     else:
-        calibrated, new_z, new_x, new_y, new_l, new_r, xhigh, yhigh, zhigh = run_calibration(port, firmFlag, new_x, new_y, new_z, new_l, new_r, xhigh, yhigh, zhigh, max_runs, max_error, bed_temp, minterp, runs)
+        calibrated, new_z, new_x, new_y, new_l, new_r, xhigh, yhigh, zhigh = run_calibration(port, firmFlag, new_x, new_y, new_z, new_l, new_r, xhigh, yhigh, zhigh, max_runs, max_error, bed_temp, minterp, tower_flag, runs)
 
     return calibrated, new_z, new_x, new_y, new_l, new_r, xhigh, yhigh, zhigh
 
@@ -737,9 +757,13 @@ def main():
     bed_temp = -1
     minterp = 0
     firmFlag = 0
+    tower_flag = 0
 
     parser = argparse.ArgumentParser(description='Auto-Bed Cal. for Monoprice Mini Delta')
     parser.add_argument('-p','--port',help='Serial port',required=True)
+    parser.add_argument('-x','--x0',type=float,default=x0,help='Starting x-value')
+    parser.add_argument('-y','--y0',type=float,default=y0,help='Starting y-value')
+    parser.add_argument('-z','--z0',type=float,default=z0,help='Starting z-value')
     parser.add_argument('-r','--r-value',type=float,default=r_value,help='Starting r-value')
     parser.add_argument('-l','--l-value',type=float,default=l_value,help='Starting l-value')
     parser.add_argument('-s','--step-mm',type=float,default=step_mm,help='Set steps-/mm')
@@ -748,6 +772,7 @@ def main():
     parser.add_argument('-bt','--bed-temp',type=int,default=bed_temp,help='Bed Temperature')
     parser.add_argument('-im','--minterp',type=int,default=minterp,help='Intepolation Method')
     parser.add_argument('-ff','--firmFlag',type=int,default=firmFlag,help='Firmware Flag (0 = Stock; 1 = Marlin)')
+    parser.add_argument('-tf','--tower_flag',type=int,default=tower_flag,help='Tower Flag (0 = Stock and old Marlin; 1 = Marlin 1.3.3, 2 = experimental)')
     parser.add_argument('-f','--file',type=str,dest='file',default=None,
         help='File with settings, will be updated with latest settings at the end of the run')
     args = parser.parse_args()
@@ -758,6 +783,7 @@ def main():
         try:
             with open(args.file) as data_file:
                 settings = json.load(data_file)
+            tower_flag = int(settings.get('tower_flag', tower_flag))
             firmFlag = int(settings.get('firmFlag', firmFlag))
             minterp = int(settings.get('minterp', minterp))
             bed_temp = int(settings.get('bed_temp', bed_temp))
@@ -771,22 +797,30 @@ def main():
             step_mm = float(settings.get('step', step_mm))
 
         except:
+            tower_flag = args.tower_flag
             firmFlag = args.firmFlag
             minterp = args.minterp
             bed_temp = args.bed_temp
             max_error = args.max_error
             max_runs = args.max_runs
+            trial_z = args.z0
+            trial_x = args.x0
+            trial_y = args.y0
             r_value = args.r_value
             step_mm = args.step_mm
             max_runs = args.max_runs
             l_value = args.l_value
             pass
     else: 
+        tower_flag = args.tower_flag
         firmFlag = args.firmFlag
         minterp = args.minterp
         bed_temp = args.bed_temp
         max_error = args.max_error
         max_runs = args.max_runs
+        trial_z = args.z0
+        trial_x = args.x0
+        trial_y = args.y0
         r_value = args.r_value
         step_mm = args.step_mm
         max_runs = args.max_runs
@@ -799,6 +833,14 @@ def main():
             print("Using Monoprice Firmware\n")
         elif firmFlag == 1:
             print("Using Marlin Firmware\n")
+            
+        # Tower Setup
+        if tower_flag == 0:
+            print("Stock Tower Setup (X opposite of LCD)\n")
+        elif tower_flag == 1:
+            print("Altered Tower Setup (Y opposite of LCD)\n")
+        elif tower_flag == 2:
+            print("Experimental Tower Setup (Z opposite of LCD)\n")
     
         #Set Bed Temperature
         if bed_temp >= 0:
@@ -834,7 +876,7 @@ def main():
 
         print ('\nStarting calibration')
 
-        calibrated, new_z, new_x, new_y, new_l, new_r, xhigh, yhigh, zhigh = run_calibration(port, firmFlag, trial_x, trial_y, trial_z, l_value, r_value, xhigh, yhigh, zhigh, max_runs, args.max_error, bed_temp, minterp)
+        calibrated, new_z, new_x, new_y, new_l, new_r, xhigh, yhigh, zhigh = run_calibration(port, firmFlag, trial_x, trial_y, trial_z, l_value, r_value, xhigh, yhigh, zhigh, max_runs, args.max_error, bed_temp, minterp, tower_flag)
 
         port.close()
 
